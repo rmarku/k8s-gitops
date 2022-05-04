@@ -1,0 +1,78 @@
+argo-cd:
+  dex:
+    enabled: false
+
+  server:
+    extraArgs:
+      - --insecure
+
+    additionalApplications:
+      # Self-managed ArgoCD
+      - name: argo-cd
+        namespace: argocd
+        destination:
+          namespace: argocd
+          server: https://kubernetes.default.svc
+        project: argocd
+        source:
+          path: charts/argo-cd
+          repoURL: https://github.com/rmarku/k8s-gitops.git # This repo
+          targetRevision: HEAD
+        syncPolicy:
+          automated:
+            prune: false
+            selfHeal: true
+
+      # Root app of apps `/apps`
+      - name: root
+        namespace: argocd
+        destination:
+          namespace: argocd
+          server: https://kubernetes.default.svc
+        project: default
+        source:
+          path: apps
+          repoURL: https://github.com/narze/home-cluster.git
+          targetRevision: HEAD
+        syncPolicy:
+          automated:
+            selfHeal: true
+            prune: true
+
+    additionalProjects:
+      - name: argocd
+        namespace: argocd
+        additionalLabels: {}
+        additionalAnnotations: {}
+        description: ArgoCD Project
+        sourceRepos:
+          - "*"
+        destinations:
+          - namespace: argocd
+            server: https://kubernetes.default.svc
+        clusterResourceWhitelist:
+          - group: "*"
+            kind: "*"
+        orphanedResources:
+          warn: false
+
+    ingress:
+      enabled: true
+      annotations: {}
+      labels: {}
+      hosts:
+        - argocd.casa.marku.me
+      paths:
+        - /
+      tls:
+        - secretName: argocd-tls-certificate
+          hosts:
+            - argocd.casa.marku.me
+      https: true
+
+  # ARM 64 image until 2.4
+  applicationSet:
+    image:
+      repository: ghcr.io/jr64/argocd-applicationset
+      pullPolicy: IfNotPresent
+      tag: "v0.4.0"
